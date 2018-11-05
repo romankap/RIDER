@@ -12,7 +12,7 @@ BIT_MEAN_WRITES = 1e8;
 BIT_VAR_WRITES = 0.25*BIT_MEAN_WRITES;
 
 global PAGES_NUM
-PAGES_NUM = 3; %1000;
+PAGES_NUM = 100; %1000;
 
 
 % -------- ECP Parameters --------
@@ -27,7 +27,8 @@ for i = 1:PAGES_NUM
     pages(:, :, i) = round(normrnd(BIT_MEAN_WRITES, BIT_VAR_WRITES, PAGE_ROWS, BITS_PER_BLOCK));
 end
 active_rows_array = ones(PAGE_ROWS+1, PAGES_NUM); 
-dead_bits_table = zeros(PAGE_ROWS, BITS_PER_BLOCK, PAGES_NUM);
+dead_bit_table = zeros(PAGE_ROWS, BITS_PER_BLOCK, PAGES_NUM);
+writes_performed_table = zeros(PAGE_ROWS, PAGES_NUM);
 %active_rows_array(some_page, PAGE_ROWS+1) marks whether the entire page is active
 
 %writes
@@ -45,6 +46,8 @@ spare_blocks_row_num_queue = [];
 block_pairing_table_page_num = zeros(PAGE_ROWS, PAGES_NUM);
 block_pairing_table_block_num = zeros(PAGE_ROWS, PAGES_NUM);
 
+%-- Zombie
+pair_block_flag = false;
 
 % perform "virtual" writes
 iter_counter=0;
@@ -65,30 +68,41 @@ while writes_performed <= MAX_WRITES
                 % Otherwise, put page in spare blocks pool.
                 
                 %-- Zombie
-                [dontcare, spare_blocks] = size(spare_blocks_page_num_queue);
-                if spare_blocks > 0 % Pair the bad block
-                    block_pairing_table_page_num(bad_block_num, page_num) = spare_blocks_page_num_queue(1);
-                    block_pairing_table_block_num(bad_block_num, page_num) = spare_blocks_row_num_queue(1);
-                    % Dequeue
-                    spare_blocks_page_num_queue(1) = [];
-                    spare_blocks_row_num_queue(1) = [];
-                    
-                    % find mismatching bits
+                % Case: a primary block is already paired with another block --> write to spare block
+                if block_pairing_table_page_num(bad_block_num, page_num) ~= 0
                     spare_block_page_num = block_pairing_table_page_num(bad_block_num, page_num);
                     spare_block_block_num = block_pairing_table_block_num(bad_block_num, page_num);
-                    spare_block_bits = pages(spare_block_block_num, :, spare_block_page_num);
+                    dead_bit_table(bad_block_num, :, page_num) = pages(bad_block_num, :, page_num) < writes_performed;
                     
-                    bad_block_bits = pages(bad_block_num, :, page_num);
-                    
-                else % All page blocks become spare-blocks
-                    active_rows_array(:, page_num) = 0;
-                    paired_blocks_pool(:, page_num) = 1; % add bad block to spare blocks pool
-                    for i=1:1:PAGE_ROWS
-                        spare_blocks_page_num_queue = Enqueue(spare_blocks_page_num_queue, page_num);
-                        spare_blocks_row_num_queue = Enqueue(spare_blocks_row_num_queue, i);
+                    bad_bits_on_both_pages = and(dead_bit_table(spare_block_block_num, :, spare_block_page_num), ...
+                                                dead_bit_table(bad_block_num, :, page_num));
+                    if ~isempty(find(bad_bits_on_both_pages == true, 1))
+                        pair_block_flag = true;
+                        fprintf("\n!!! Found a dead spare block\n");
                     end
                 end
-                
+                if pair_block_flag || block_pairing_table_page_num(bad_block_num, page_num) == 0
+                    % Case: replace spare block a primary block is NOT paired with another block
+                    [dontcare, spare_blocks] = size(spare_blocks_page_num_queue);
+                    if spare_blocks > 0 % Pair the bad block
+                        block_pairing_table_page_num(bad_block_num, page_num) = spare_blocks_page_num_queue(1);
+                        block_pairing_table_block_num(bad_block_num, page_num) = spare_blocks_row_num_queue(1);
+                        % Dequeue
+                        spare_blocks_page_num_queue(1) = [];
+                        spare_blocks_row_num_queue(1) = [];
+
+                    else % All page blocks become spare-blocks
+                        active_rows_array(:, page_num) = 0;
+                        paired_blocks_pool(:, page_num) = 1; % add bad block to spare blocks pool
+                        for i=1:1:PAGE_ROWS
+                            spare_blocks_page_num_queue = Enqueue(spare_blocks_page_num_queue, page_num);
+                            spare_blocks_row_num_queue = Enqueue(spare_blocks_row_num_queue, i);
+                        end
+
+                        dead_bit_table(:, :, page_num) = pages(:, :, page_num) < writes_performed;
+                    end
+                    
+                end
                 
             end
         end
@@ -97,13 +111,14 @@ while writes_performed <= MAX_WRITES
     fprintf("iteration %d: working pages = %d\n", 2*PAGE_ROWS*writes_performed/1e8, num_of_active_pages(active_rows_array(PAGE_ROWS+1, :)));
     iter_counter = iter_counter+1;
     active_pages_vs_writes_num(iter_counter) = num_of_active_pages(active_rows_array(PAGE_ROWS+1, :));
+    pair_block_flag = false;
     
     %-- normalize writes to only active pages
     active_pages_fraction = fraction_of_active_pages(active_rows_array(PAGE_ROWS+1, :));
     if active_pages_fraction == 0
         break;
     end
-    writes_performed = writes_performed + WRITES_DELTA*active_pages_fraction;
+    writes_performed = writes_performed + WRITES_DELTA;%*active_pages_fraction;
 end
 fprintf("iteration %d: working pages = %d\n", 2*PAGE_ROWS*writes_performed/1e8, num_of_active_pages(active_rows_array(PAGE_ROWS+1, :)));
 

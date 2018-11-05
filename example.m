@@ -1,9 +1,8 @@
 clc; clear;
-vecA = [0 0 1 1 0];
-vecB = [1 0 1 0 1];
-res = and(vecA, vecB);
-disp(res);
-
+a = false;
+b = true;
+c = a || b;
+disp(c);
 
 function array = Enqueue(array, elem)
     array = [array elem];
