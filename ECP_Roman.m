@@ -11,7 +11,7 @@ PAGE_ROWS = PAGE_BYTES/BLOCK_BYTES;
 BIT_MEAN_WRITES = 1e8;
 BIT_VAR_WRITES = 0.25*BIT_MEAN_WRITES;
 
-PAGES_NUM = 200;
+PAGES_NUM = 1000;
 global PAGES_NUM
 
 % -------- ECP Parameters --------
@@ -28,27 +28,23 @@ end
 active_pages_array = ones(1,PAGES_NUM);
 
 %writes
-WRITES_START = 0; 
+WRITES_START = 0;%2e7; 
 MAX_WRITES = 1e8; 
-WRITES_RESOLUTION = 10000; 
+WRITES_RESOLUTION = 2500; 
 WRITES_DELTA = (MAX_WRITES-WRITES_START)/WRITES_RESOLUTION;
 active_pages_vs_writes_num = zeros(1, WRITES_RESOLUTION+1);
 writes_num_vs_iteration = zeros(1, WRITES_RESOLUTION+1);
 
+
 % perform "virtual" writes
 iter_counter=0;
-for writes_performed = WRITES_START:WRITES_DELTA:MAX_WRITES
-    %normalize writes to only active pages
-    active_pages_fraction = fraction_of_active_pages(active_pages_array);
-    if active_pages_fraction == 0
-        break;
-    end
-    normalized_writes_performed = writes_performed/active_pages_fraction;
-    
+writes_performed = WRITES_START;
+%for writes_performed = WRITES_START:WRITES_DELTA:MAX_WRITES
+while writes_performed <= MAX_WRITES 
     % iterate over all active pages
-    writes_num_vs_iteration(iter_counter+1) = normalized_writes_performed; 
+    writes_num_vs_iteration(iter_counter+1) = writes_performed; 
     for page_num = find(active_pages_array>0)
-        [xi, yi, vi] = find(normalized_writes_performed > pages(:,:,page_num));
+        [xi, yi, vi] = find(writes_performed > pages(:,:,page_num));
         if ~isempty(xi)
             AA=full(sparse(xi,yi,vi));
             BB=sum(AA'>0);
@@ -59,12 +55,18 @@ for writes_performed = WRITES_START:WRITES_DELTA:MAX_WRITES
         end
     end
     
-    fprintf("iteration %d: working pages = %d\n", 2*PAGE_ROWS*normalized_writes_performed/1e8, num_of_active_pages(active_pages_array));
+    fprintf("iteration %d: working pages = %d\n", 2*PAGE_ROWS*writes_performed/1e8, num_of_active_pages(active_pages_array));
     iter_counter = iter_counter+1;
     active_pages_vs_writes_num(iter_counter) = num_of_active_pages(active_pages_array);
     
+    %-- normalize writes to only active pages
+    active_pages_fraction = fraction_of_active_pages(active_pages_array);
+    if active_pages_fraction == 0
+        break;
+    end
+    writes_performed = writes_performed + WRITES_DELTA*active_pages_fraction;
 end
-fprintf("iteration %d: working pages = %d\n", 2*PAGE_ROWS*normalized_writes_performed/1e8, num_of_active_pages(active_pages_array));
+fprintf("iteration %d: working pages = %d\n", 2*PAGE_ROWS*writes_performed/1e8, num_of_active_pages(active_pages_array));
 
 save e58
 
