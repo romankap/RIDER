@@ -11,8 +11,9 @@ PAGE_ROWS = PAGE_BYTES/BLOCK_BYTES;
 BIT_MEAN_WRITES = 1e8;
 BIT_VAR_WRITES = 0.25*BIT_MEAN_WRITES;
 
-PAGES_NUM = 1000;
 global PAGES_NUM
+PAGES_NUM = 100;
+
 
 % -------- ECP Parameters --------
 ECP_MAX_ERRORS_CORRECTED = 6;
@@ -28,7 +29,7 @@ end
 active_pages_array = ones(1,PAGES_NUM);
 
 %writes
-WRITES_START = 0;%2e7; 
+WRITES_START = 2e7;  %0;
 MAX_WRITES = 1e8; 
 WRITES_RESOLUTION = 2500; 
 WRITES_DELTA = (MAX_WRITES-WRITES_START)/WRITES_RESOLUTION;
@@ -42,7 +43,6 @@ writes_performed = WRITES_START;
 %for writes_performed = WRITES_START:WRITES_DELTA:MAX_WRITES
 while writes_performed <= MAX_WRITES 
     % iterate over all active pages
-    writes_num_vs_iteration(iter_counter+1) = writes_performed; 
     for page_num = find(active_pages_array>0)
         [xi, yi, vi] = find(writes_performed > pages(:,:,page_num));
         if ~isempty(xi)
@@ -57,6 +57,7 @@ while writes_performed <= MAX_WRITES
     
     fprintf("iteration %d: working pages = %d\n", 2*PAGE_ROWS*writes_performed/1e8, num_of_active_pages(active_pages_array));
     iter_counter = iter_counter+1;
+    writes_num_vs_iteration(iter_counter) = writes_performed; 
     active_pages_vs_writes_num(iter_counter) = num_of_active_pages(active_pages_array);
     
     %-- normalize writes to only active pages
@@ -64,7 +65,8 @@ while writes_performed <= MAX_WRITES
     if active_pages_fraction == 0
         break;
     end
-    writes_performed = writes_performed + WRITES_DELTA*active_pages_fraction;
+    
+    writes_performed = writes_performed + WRITES_DELTA;%*active_pages_fraction;
 end
 fprintf("iteration %d: working pages = %d\n", 2*PAGE_ROWS*writes_performed/1e8, num_of_active_pages(active_pages_array));
 
