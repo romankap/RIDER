@@ -5,16 +5,22 @@ ECP_MAX_ERRORS_CORRECTED = 6;
 
 % -------- Execution --------
 %init
-Memory = MemoryArray;
+PAGE_BYTES = 2^12;
+BLOCK_BYTES = 2^6; 
+BLOCK_BITS = BLOCK_BYTES*2^3;
+PAGES_NUM = 100; %1000;
+
+Zombie = ZombieMetadata(PAGE_BYTES, BLOCK_BYTES, PAGES_NUM, ECP_MAX_ERRORS_CORRECTED);
 
 %writes
-WRITES_START = 2e7; 
-MAX_WRITES = 1e8; 
+WRITES_START = 0; 
+MAX_WRITES = 10e8; 
 WRITES_RESOLUTION = 100; 
 WRITES_DELTA = (MAX_WRITES-WRITES_START)/WRITES_RESOLUTION;
 WRITES_STEP = 1e6;
 active_pages_vs_writes_num = zeros(1, WRITES_RESOLUTION+1);
 writes_num_vs_iteration = zeros(1, WRITES_RESOLUTION+1);
+WRITE_WIDTH = 
 
 %-- Zombie
 pair_block_flag = false;
@@ -23,82 +29,24 @@ pair_block_flag = false;
 iter_counter=0;
 writes_performed = WRITES_START;
 %for writes_performed = WRITES_START:WRITES_DELTA:MAX_WRITES
-while ~Memory.is_memory_dead()
+while ~Zombie.isMemoryDead()
     % iterate over all active pages
     writes_num_vs_iteration(iter_counter+1) = writes_performed; 
     
-    Memory.write_to_rows(WRITES_STEP);
-    Memory.check_for_errors();
+    Zombie.writeToRandomRows(WRITES_STEP);
+    active_rows_list = Zombie.getActiveRowsList();
+    num_of_active_pages = length(active_rows_list)/Zombie.PAGE_ROWS;
     
-    
-    active_rows_list = Memory.get_active_rows();
-    for active_row = active_rows_list
-        
-    end
-    for page_num = find(active_rows_array(page_num*PAGE_ROWS+1:page_num*PAGE_ROWS+1) > 0)
-        [xi, yi, vi] = find(writes_performed > memory_lifetime_table(:,:));
-        if ~isempty(xi)
-            AA=full(sparse(xi,yi,vi));
-            BB=sum(AA'>0);
-
-            for bad_block_num = find(BB>ECP_MAX_ERRORS_CORRECTED) 
-                % Uncorrectable block: allocate spare block, if exists.
-                % Otherwise, put page in spare blocks pool.
-                
-                %-- Zombie
-                % Case: a primary block is already paired with another block --> write to spare block
-                if block_pairing_table_page_num(bad_block_num, page_num) ~= 0
-                    spare_block_page_num = block_pairing_table_page_num(bad_block_num, page_num);
-                    spare_block_block_num = block_pairing_table_block_num(bad_block_num, page_num);
-                    dead_bit_table(bad_block_num, :, page_num) = memory_lifetime_table(bad_block_num, :, page_num) < writes_performed;
-                    
-                    bad_bits_on_both_pages = and(dead_bit_table(spare_block_block_num, :, spare_block_page_num), ...
-                                                dead_bit_table(bad_block_num, :, page_num));
-                    if ~isempty(find(bad_bits_on_both_pages == true, 1))
-                        pair_block_flag = true;
-                        fprintf("\n!!! Found a dead spare block\n");
-                    end
-                end
-                if pair_block_flag || block_pairing_table_page_num(bad_block_num, page_num) == 0
-                    % Case: replace spare block a primary block is NOT paired with another block
-                    [dontcare, spare_blocks] = size(spare_blocks_page_num_queue);
-                    if spare_blocks > 0 % Pair the bad block
-                        block_pairing_table_page_num(bad_block_num, page_num) = spare_blocks_page_num_queue(1);
-                        block_pairing_table_block_num(bad_block_num, page_num) = spare_blocks_row_num_queue(1);
-                        % Dequeue
-                        spare_blocks_page_num_queue(1) = [];
-                        spare_blocks_row_num_queue(1) = [];
-
-                    else % All page blocks become spare-blocks
-                        active_rows_array(:, page_num) = 0;
-                        paired_blocks_pool(:, page_num) = 1; % add bad block to spare blocks pool
-                        for i=1:1:PAGE_ROWS
-                            spare_blocks_page_num_queue = Enqueue(spare_blocks_page_num_queue, page_num);
-                            spare_blocks_row_num_queue = Enqueue(spare_blocks_row_num_queue, i);
-                        end
-
-                        dead_bit_table(:, :, page_num) = memory_lifetime_table(:, :, page_num) < writes_performed;
-                    end
-                    
-                end
-                
-            end
-        end
+    if mod(writes_performed, 1e7) == 0
+        fprintf("iteration %d: working pages = %d\n", writes_performed/1e8, num_of_active_pages);    
     end
     
-    fprintf("iteration %d: working pages = %d\n", 2*PAGE_ROWS*writes_performed/1e8, num_of_active_pages(active_rows_array(PAGE_ROWS+1, :)));
     iter_counter = iter_counter+1;
-    active_pages_vs_writes_num(iter_counter) = num_of_active_pages(active_rows_array(PAGE_ROWS+1, :));
-    pair_block_flag = false;
+    active_pages_vs_writes_num(iter_counter) = num_of_active_pages;
+    writes_performed = writes_performed + WRITES_STEP;
     
-    %-- normalize writes to only active pages
-    active_pages_fraction = fraction_of_active_pages(active_rows_array(PAGE_ROWS+1, :));
-    if active_pages_fraction == 0
-        break;
-    end
-    writes_performed = writes_performed + WRITES_DELTA;%*active_pages_fraction;
 end
-fprintf("iteration %d: working pages = %d\n", 2*PAGE_ROWS*writes_performed/1e8, num_of_active_pages(active_rows_array(PAGE_ROWS+1, :)));
+fprintf("iteration %d: working pages = %d\n", writes_performed/1e8, num_of_active_pages);
 
 save e58
 
@@ -107,48 +55,45 @@ save e58
 % PLOT
 %--------------------------
 load e58
-    pages_vs_writes_unnormalized = 100*active_pages_vs_writes_num/PAGES_NUM;              
-    
-    sorted_pages_vs_writes_unnormalized = sort(pages_vs_writes_unnormalized,'descend');
+    survmp = 100*active_pages_vs_writes_num/PAGES_NUM;
+    %xx=(WRITES_STEP/PAGES_NUM)*(1:length(survmp));
+    xx = writes_num_vs_iteration;
 
-    figure(54)
+    figure(66)
     set(gca, 'FontName', 'Helvetica')
     set(gca,'FontSize',16,'FontUnits','points');
     afFigureBackgroundColor = [1, 1, 1];
     set(gcf, 'color', afFigureBackgroundColor);
     set(gcf, 'InvertHardCopy', 'off');    
 
-    % 2 because the probability of a bit to flip is 0.5
-    plot(2*PAGE_ROWS*writes_num_vs_iteration, sorted_pages_vs_writes_unnormalized, 'b');
+    plot(xx,survmp,'r')
+%     hold
+%     plot(2*M*kk,ESurPages1,'b')
 %     hold
 
     set(findall(gca, 'Type', 'Line'),'LineWidth',3);
 
-    xlabel('Average writes/page (B), \sigma=25%');
-    ylabel('Percentage of surviving pages');
+    xlabel('Average writes/page (B), \sigma=25%')
+    ylabel('Percentage of surviving rows')
 %     legend('Rider_3_4_0', 'ECP_6', 'Location','SW')
+
+
+    s90=xx(find(survmp<90,1));
+    s50=xx(find(survmp<50,1));
+    
+    p90=100*(s90-2.87e9)/2.87e9;
+    p50=100*(s50-5.36e9)/5.36e9;
+    
+    fprintf('90%% mem capacity after %2.2fB writes, 50%% mem capacity after %2.2fB writes\n',...
+        s90*1e-9,s50*1e-9) 
+    fprintf('%2.2f%% and %2.2f%% above "no replacement" scheme, respectively\n', p90, p50) 
 
 
 %--------------------------
 % Aux functions
 %--------------------------
 
-
-
 function fraction = fraction_of_active_pages(active_pages_array)
     global PAGES_NUM
     fraction = num_of_active_pages(active_pages_array)/PAGES_NUM;
-end
-
-
-function array = Enqueue(array, elem)
-    array = [array elem];
-end
-
-function array = Dequeue(array)
-    [m, array_elements] = size(array);
-    if array_elements < 1
-       return;
-    end
-    array(1) = [];
 end

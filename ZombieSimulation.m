@@ -17,9 +17,10 @@ WRITES_START = 0;
 MAX_WRITES = 10e8; 
 WRITES_RESOLUTION = 100; 
 WRITES_DELTA = (MAX_WRITES-WRITES_START)/WRITES_RESOLUTION;
-WRITES_STEP = 1e5;
+WRITES_STEP = 1e6;
 active_pages_vs_writes_num = zeros(1, WRITES_RESOLUTION+1);
 writes_num_vs_iteration = zeros(1, WRITES_RESOLUTION+1);
+WRITE_WIDTH = 128;
 
 %-- Zombie
 pair_block_flag = false;
@@ -32,7 +33,7 @@ while ~Zombie.isMemoryDead()
     % iterate over all active pages
     writes_num_vs_iteration(iter_counter+1) = writes_performed; 
     
-    Zombie.writeToRandomRows(WRITES_STEP);
+    Zombie.writeToRandomRows(WRITES_STEP, WRITE_WIDTH);
     active_rows_list = Zombie.getActiveRowsList();
     num_of_active_pages = length(active_rows_list)/Zombie.PAGE_ROWS;
     

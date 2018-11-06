@@ -37,43 +37,43 @@ classdef ZombieMetadata < handle
         end
         
                 
-        function obj = writeToRandomRows(obj, writes_performed)
+        function obj = writeToRandomRows(obj, writes_performed, write_width)
             num_of_active_rows = obj.Memory.getNumOfActiveRows();
             if num_of_active_rows > 0
                 random_active_block = randi([1 num_of_active_rows]);
                 active_rows_list = obj.Memory.getActiveRowsList();
                 block_to_write=active_rows_list(random_active_block);
 
-                obj.writeToRow(block_to_write, writes_performed);    
+                obj.writeToRow(block_to_write, writes_performed, write_width);    
             end
         end
         
         
-        function writeToRow(obj, row_to_write, writes_performed)
+        function writeToRow(obj, row_to_write, writes_performed, write_width)
             spare_block_num = obj.block_pairing_table(row_to_write);
             if spare_block_num > 0 % The block is paired
                 %write to spare block
                 primary_block_dead_bits = obj.Memory.dead_bit_table(row_to_write, :);
                 if length(find(primary_block_dead_bits) ~= 0) <= obj.ECP_MAX_ERRORS_CORRECTED
-                    obj.Memory.writeToRow(row_to_write, writes_performed);    
+                    obj.Memory.writeToRow(row_to_write, writes_performed, write_width);    
                 else
-                    obj.Memory.writeToRow(spare_block_num, writes_performed);    
+                    obj.Memory.writeToRow(spare_block_num, writes_performed, write_width);    
                     spare_block_dead_bits = obj.Memory.dead_bit_table(spare_block_num, :);
                     if length(find(spare_block_dead_bits) ~= 0) > obj.ECP_MAX_ERRORS_CORRECTED
                         dead_bits_on_both_blocks = and(primary_block_dead_bits, spare_block_dead_bits);
                         if ~isempty(find(dead_bits_on_both_blocks, 1))
                             %replace the spare block
-                            %%pairBlock(obj, row_to_write);
-                            pairPage(obj, row_to_write);
+                            pairBlock(obj, row_to_write);
+                            %pairPage(obj, row_to_write);
                         end    
                     end
                 end
             else
-                obj.Memory.writeToRow(row_to_write, writes_performed);
+                obj.Memory.writeToRow(row_to_write, writes_performed, write_width);
                 num_of_dead_bits = length(find(obj.Memory.dead_bit_table(row_to_write, :) > 0));
                 if num_of_dead_bits > obj.ECP_MAX_ERRORS_CORRECTED
-                    %%pairBlock(obj, row_to_write);
-                    pairPage(obj, row_to_write);
+                    pairBlock(obj, row_to_write);
+                    %pairPage(obj, row_to_write);
                 end
             end
         end

@@ -2,8 +2,14 @@ clc; clear;
 arr = zeros(4, 6);
 arr(2,1) = 1;
 arr(2,4) = 1;
-res = find(arr(2,:)>0);
-len = length(res);
+find_res = find(arr(2,:));
+len = length(find_res);
+
+find_res = find(arr(2,:) ~= 0);
+len = length(find_res);
+
+find_res = find(arr(2,:) > 0);
+len = length(find_res);
 
 arr(1) = [];
 emp = isempty(arr);

@@ -44,8 +44,8 @@ classdef MemoryArray < handle
         end
         
         % Memory operations
-        function obj = writeToRow(obj, row_to_write, writes_performed)
-            obj.writes_performed_table(row_to_write,:) = obj.writes_performed_table(row_to_write,:) + writes_performed/2;
+        function obj = writeToRow(obj, row_to_write, writes_performed, write_width)
+            obj.writes_performed_table(row_to_write,:) = obj.writes_performed_table(row_to_write,:) + writes_performed*(write_width/obj.BITS_PER_BLOCK)/2;
             obj.dead_bit_table(row_to_write,:) = obj.writes_performed_table(row_to_write,:) > obj.memory_lifetime_table(row_to_write, :);
         end
 
@@ -63,7 +63,7 @@ classdef MemoryArray < handle
         end
         
         function is_dead = isMemoryDead(obj)
-            is_dead = isempty(find(obj.active_rows_array));
+            is_dead = isempty(find(obj.active_rows_array, 1));
         end
         
         function num_of_active_rows = getNumOfActiveRows(obj)
