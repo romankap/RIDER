@@ -28,11 +28,11 @@ if 1
         
         wri=randi([1 Memsize]);
         wi=ni(wri);
-        wL=M*fix((wi-1)/M);        
+        page_first_row=M*fix((wi-1)/M);        
         cll(wi,:)=cll(wi,:)+wstp*((randi(2,n,1)-1)');      
         
         if length(find(cll(wi,:)>bf(wi,:))) > max_err
-            goodrow(wL+1:wL+M)=0;
+            goodrow(page_first_row+1:page_first_row+M)=0;
             ni=find(goodrow);    
             Memsize=length(ni);           
         end

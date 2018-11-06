@@ -1,8 +1,14 @@
 clc; clear;
-a = false;
-b = true;
-c = a || b;
-disp(c);
+arr = zeros(4, 6);
+arr(2,1) = 1;
+arr(2,4) = 1;
+res = find(arr(2,:)>0);
+len = length(res);
+
+arr(1) = [];
+emp = isempty(arr);
+len = length(find(arr > 0));
+disp(len);
 
 function array = Enqueue(array, elem)
     array = [array elem];
