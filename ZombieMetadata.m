@@ -53,19 +53,27 @@ classdef ZombieMetadata < handle
             spare_block_num = obj.block_pairing_table(row_to_write);
             if spare_block_num > 0 % The block is paired
                 %write to spare block
-                obj.Memory.writeToRow(spare_block_num, writes_performed);
-                spare_block_dead_bits = obj.Memory.dead_bit_table(spare_block_num, :);
                 primary_block_dead_bits = obj.Memory.dead_bit_table(row_to_write, :);
-                dead_bits_on_both_blocks = and(primary_block_dead_bits, spare_block_dead_bits);
-                if ~isempty(find(dead_bits_on_both_blocks, 1))
-                    %replace the spare block
-                    pairBlock(obj, row_to_write)
+                if length(find(primary_block_dead_bits) ~= 0) <= obj.ECP_MAX_ERRORS_CORRECTED
+                    obj.Memory.writeToRow(row_to_write, writes_performed);    
+                else
+                    obj.Memory.writeToRow(spare_block_num, writes_performed);    
+                    spare_block_dead_bits = obj.Memory.dead_bit_table(spare_block_num, :);
+                    if length(find(spare_block_dead_bits) ~= 0) > obj.ECP_MAX_ERRORS_CORRECTED
+                        dead_bits_on_both_blocks = and(primary_block_dead_bits, spare_block_dead_bits);
+                        if ~isempty(find(dead_bits_on_both_blocks, 1))
+                            %replace the spare block
+                            %%pairBlock(obj, row_to_write);
+                            pairPage(obj, row_to_write);
+                        end    
+                    end
                 end
             else
                 obj.Memory.writeToRow(row_to_write, writes_performed);
                 num_of_dead_bits = length(find(obj.Memory.dead_bit_table(row_to_write, :) > 0));
                 if num_of_dead_bits > obj.ECP_MAX_ERRORS_CORRECTED
-                    pairBlock(obj, row_to_write)
+                    %%pairBlock(obj, row_to_write);
+                    pairPage(obj, row_to_write);
                 end
             end
         end
@@ -74,6 +82,18 @@ classdef ZombieMetadata < handle
         function obj = pairBlock(obj, bad_block_num)
             if ~isempty(obj.spare_blocks_queue) % Pair the bad block
                 obj.block_pairing_table(bad_block_num) = obj.DequeueSpareBlock();
+            else
+                makeAllPageBlocksSpare(obj, bad_block_num);
+            end
+        end
+        
+        
+        function obj = pairPage(obj, bad_block_num)
+            spare_page_num = obj.Memory.get_page_num_of_block(bad_block_num);
+            if ~isempty(obj.spare_blocks_queue) % Pair the entire page of bad block with a spare page
+                for i = obj.spare_blocks_queue
+                    obj.block_pairing_table((spare_page_num-1)*obj.PAGE_ROWS+i) = obj.DequeueSpareBlock();    
+                end
             else
                 makeAllPageBlocksSpare(obj, bad_block_num);
             end
