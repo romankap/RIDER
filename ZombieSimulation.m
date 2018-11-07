@@ -9,8 +9,10 @@ PAGE_BYTES = 2^12;
 BLOCK_BYTES = 2^6; 
 BLOCK_BITS = BLOCK_BYTES*2^3;
 PAGES_NUM = 100; %1000;
+BIT_MEAN_WRITES = 1e8;
+BIT_VAR_WRITES = 0.25 * BIT_MEAN_WRITES;
 
-Zombie = ZombieMetadata(PAGE_BYTES, BLOCK_BYTES, PAGES_NUM, ECP_MAX_ERRORS_CORRECTED);
+Zombie = ZombieMetadata(BIT_MEAN_WRITES, BIT_VAR_WRITES, PAGE_BYTES, BLOCK_BYTES, PAGES_NUM, ECP_MAX_ERRORS_CORRECTED);
 
 %writes
 WRITES_START = 0; 
@@ -20,7 +22,7 @@ WRITES_DELTA = (MAX_WRITES-WRITES_START)/WRITES_RESOLUTION;
 WRITES_STEP = 1e6;
 active_pages_vs_writes_num = zeros(1, WRITES_RESOLUTION+1);
 writes_num_vs_iteration = zeros(1, WRITES_RESOLUTION+1);
-WRITE_WIDTH = 128;
+WRITE_WIDTH = BLOCK_BITS;
 
 %-- Zombie
 pair_block_flag = false;
@@ -37,7 +39,7 @@ while ~Zombie.isMemoryDead()
     active_rows_list = Zombie.getActiveRowsList();
     num_of_active_pages = length(active_rows_list)/Zombie.PAGE_ROWS;
     
-    if mod(writes_performed, 1e7) == 0
+    if mod(writes_performed, 1e10) == 0
         fprintf("iteration %d: working pages = %d\n", writes_performed/1e8, num_of_active_pages);    
     end
     
@@ -57,7 +59,7 @@ save e58
 load e58
     survmp = 100*active_pages_vs_writes_num/PAGES_NUM;
     %xx=(WRITES_STEP/PAGES_NUM)*(1:length(survmp));
-    xx = writes_num_vs_iteration;
+    xx = writes_num_vs_iteration/PAGES_NUM;
 
     figure(66)
     set(gca, 'FontName', 'Helvetica')

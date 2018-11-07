@@ -18,35 +18,41 @@ classdef MemoryArray < handle
         memory_lifetime_table;
         writes_performed_table;
         dead_bit_table;
+        
         active_rows_array; 
     end
     
     methods
-        function obj = MemoryArray(page_bytes, block_bytes, pages_num)
-            obj.BIT_MEAN_WRITES = 1e8;
-            obj.BIT_VAR_WRITES = 0.25 * obj.BIT_MEAN_WRITES;
-            
+        function obj = MemoryArray(lifetime_mean, lifetime_sigma, page_bytes, block_bytes, pages_num)
             obj.PAGE_BYTES = page_bytes;
             obj.BLOCK_BYTES = block_bytes; 
             obj.PAGES_NUM = pages_num; %1000;
             obj.PAGE_ROWS = obj.PAGE_BYTES/obj.BLOCK_BYTES;
             obj.BITS_PER_BLOCK = obj.BLOCK_BYTES*8;
             obj.ROWS_IN_MEMORY = obj.PAGES_NUM * obj.PAGE_ROWS;
+            obj.BIT_MEAN_WRITES = lifetime_mean;
+            obj.BIT_VAR_WRITES = lifetime_sigma;
             
 %             obj.memory_lifetime_table = zeros(obj.ROWS_IN_MEMORY, obj.BITS_PER_BLOCK);
 %             for i = 1:obj.ROWS_IN_MEMORY
 %                 obj.memory_lifetime_table(i, :) = round(normrnd(obj.BIT_MEAN_WRITES, obj.BIT_VAR_WRITES, 1, obj.BITS_PER_BLOCK));
 %             end
             obj.memory_lifetime_table = normrnd(obj.BIT_MEAN_WRITES, obj.BIT_VAR_WRITES, obj.ROWS_IN_MEMORY, obj.BITS_PER_BLOCK);
-            obj.active_rows_array = ones(obj.PAGES_NUM*obj.PAGE_ROWS,1); 
             obj.dead_bit_table = zeros(obj.PAGE_ROWS*obj.PAGES_NUM, obj.BITS_PER_BLOCK);
             obj.writes_performed_table = zeros(obj.PAGE_ROWS*obj.PAGES_NUM, obj.BITS_PER_BLOCK);
+            
+            obj.active_rows_array = ones(obj.PAGES_NUM*obj.PAGE_ROWS,1); 
         end
         
         % Memory operations
         function obj = writeToRow(obj, row_to_write, writes_performed, write_width)
             obj.writes_performed_table(row_to_write,:) = obj.writes_performed_table(row_to_write,:) + writes_performed*(write_width/obj.BITS_PER_BLOCK)/2;
             obj.dead_bit_table(row_to_write,:) = obj.writes_performed_table(row_to_write,:) > obj.memory_lifetime_table(row_to_write, :);
+        end
+        
+        function obj = writeToBitsOfRow(obj, row_to_write, bits_list, writes_performed, write_width)
+            obj.writes_performed_table(row_to_write,bits_list) = obj.writes_performed_table(row_to_write,bits_list) + writes_performed*(write_width/obj.BITS_PER_BLOCK)/2;
+            obj.dead_bit_table(row_to_write,bits_list) = obj.writes_performed_table(row_to_write,bits_list) > obj.memory_lifetime_table(row_to_write, bits_list);
         end
 
         % Memory getters
@@ -67,7 +73,7 @@ classdef MemoryArray < handle
         end
         
         function num_of_active_rows = getNumOfActiveRows(obj)
-            num_of_active_rows = length(find(obj.active_rows_array > 0));
+            num_of_active_rows = length(find(obj.active_rows_array));
         end
     end
 end

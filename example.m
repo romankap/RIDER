@@ -1,8 +1,12 @@
 clc; clear;
 arr = zeros(4, 6);
-arr(2,1) = 1;
-arr(2,4) = 1;
+
+arr(2,1) = 7;
+arr(2,4) = 4;
 find_res = find(arr(2,:));
+
+found_vals = arr(2,find_res);
+
 len = length(find_res);
 
 find_res = find(arr(2,:) ~= 0);

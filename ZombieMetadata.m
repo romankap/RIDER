@@ -10,16 +10,21 @@ classdef ZombieMetadata < handle
         BITS_PER_BLOCK;
         ROWS_IN_MEMORY;
         ECP_MAX_ERRORS_CORRECTED;
+        BIT_MEAN_WRITES;
+        BIT_VAR_WRITES;
 
         Memory;
         
         spare_blocks_queue;
         paired_blocks_list;
         block_pairing_table;
+        
+        ECP_corrected_errors_array;
+        is_ECP_exhausted_array;
     end
     
     methods
-        function obj = ZombieMetadata(page_bytes, block_bytes, pages_num, ecp_max_errors_corrected)
+        function obj = ZombieMetadata(lifetime_mean, lifetime_sigma, page_bytes, block_bytes, pages_num, ecp_max_errors_corrected)
             obj.PAGE_BYTES = page_bytes;
             obj.BLOCK_BYTES = block_bytes; 
             obj.PAGES_NUM = pages_num; %1000;
@@ -27,13 +32,17 @@ classdef ZombieMetadata < handle
             obj.BITS_PER_BLOCK = obj.BLOCK_BYTES*8;
             obj.ROWS_IN_MEMORY = obj.PAGES_NUM * obj.PAGE_ROWS;
             obj.ECP_MAX_ERRORS_CORRECTED = ecp_max_errors_corrected;
+            obj.BIT_MEAN_WRITES = lifetime_mean;
+            obj.BIT_VAR_WRITES = lifetime_sigma;
             
-            obj.Memory = MemoryArray(page_bytes, block_bytes, pages_num);
+            obj.Memory = MemoryArray(lifetime_mean, lifetime_sigma, page_bytes, block_bytes, pages_num);
             
             % -- Zombie
             obj.paired_blocks_list = zeros(obj.PAGE_ROWS*obj.PAGES_NUM, 1);
             obj.spare_blocks_queue = [];
             obj.block_pairing_table = zeros(obj.PAGE_ROWS*obj.PAGES_NUM, 1);
+            obj.ECP_corrected_errors_array = zeros(obj.PAGES_NUM*obj.PAGE_ROWS,1); 
+            obj.is_ECP_exhausted_array = zeros(obj.PAGES_NUM*obj.PAGE_ROWS,1); 
         end
         
                 
@@ -52,28 +61,33 @@ classdef ZombieMetadata < handle
         function writeToRow(obj, row_to_write, writes_performed, write_width)
             spare_block_num = obj.block_pairing_table(row_to_write);
             if spare_block_num > 0 % The block is paired
-                %write to spare block
-                primary_block_dead_bits = obj.Memory.dead_bit_table(row_to_write, :);
-                if length(find(primary_block_dead_bits) ~= 0) <= obj.ECP_MAX_ERRORS_CORRECTED
-                    obj.Memory.writeToRow(row_to_write, writes_performed, write_width);    
+                if ~obj.is_ECP_exhausted_array(row_to_write) %The block uses its ECP
+                    obj.Memory.writeToRow(row_to_write, writes_performed, write_width);
+                    obj.updateECPArray(row_to_write);
                 else
-                    obj.Memory.writeToRow(spare_block_num, writes_performed, write_width);    
-                    spare_block_dead_bits = obj.Memory.dead_bit_table(spare_block_num, :);
-                    if length(find(spare_block_dead_bits) ~= 0) > obj.ECP_MAX_ERRORS_CORRECTED
+                    obj.Memory.writeToRow(spare_block_num, writes_performed, write_width);
+                    obj.updateECPArray(spare_block_num);
+                    
+                    if obj.is_ECP_exhausted_array(spare_block_num)    
+                        spare_block_dead_bits = obj.Memory.dead_bit_table(spare_block_num, :);
+                        spare_block_dead_bit_indices = obj.Memory.dead_bit_table(spare_block_num, :) ~= 0;
+                        obj.Memory.writeToBitsOfRow(row_to_write, spare_block_dead_bit_indices, writes_performed, write_width);
+                        
+                        primary_block_dead_bits = obj.Memory.dead_bit_table(row_to_write, :);
                         dead_bits_on_both_blocks = and(primary_block_dead_bits, spare_block_dead_bits);
                         if ~isempty(find(dead_bits_on_both_blocks, 1))
                             %replace the spare block
-                            pairBlock(obj, row_to_write);
-                            %pairPage(obj, row_to_write);
+                            obj.pairBlock(row_to_write);
+                            %obj.pairPage(row_to_write);
                         end    
                     end
                 end
             else
                 obj.Memory.writeToRow(row_to_write, writes_performed, write_width);
-                num_of_dead_bits = length(find(obj.Memory.dead_bit_table(row_to_write, :) > 0));
-                if num_of_dead_bits > obj.ECP_MAX_ERRORS_CORRECTED
-                    pairBlock(obj, row_to_write);
-                    %pairPage(obj, row_to_write);
+                obj.updateECPArray(row_to_write);
+                if obj.is_ECP_exhausted_array(row_to_write)
+                    obj.pairBlock(row_to_write);
+                    %obj.pairPage(row_to_write);
                 end
             end
         end
@@ -95,7 +109,31 @@ classdef ZombieMetadata < handle
                     obj.block_pairing_table((spare_page_num-1)*obj.PAGE_ROWS+i) = obj.DequeueSpareBlock();    
                 end
             else
-                makeAllPageBlocksSpare(obj, bad_block_num);
+                obj.makeAllPageBlocksSpare(bad_block_num);
+            end
+        end
+        
+        
+        function updateECPArray(obj, row_to_update)
+            if ~obj.is_ECP_exhausted_array(row_to_update)
+                obj.ECP_corrected_errors_array(row_to_update) = length(find(obj.Memory.dead_bit_table(row_to_update,:)));
+                
+                if obj.ECP_corrected_errors_array(row_to_update) > obj.ECP_MAX_ERRORS_CORRECTED
+                    obj.is_ECP_exhausted_array(row_to_update) = true;
+                    % 0. Out of the dead bits: find cells that were corrected with ECP with small lifetime
+                    dead_bit_indices = find(obj.Memory.dead_bit_table(row_to_update,:));
+                    dead_bit_lifetimes = obj.Memory.memory_lifetime_table(row_to_update, dead_bit_indices);
+                    [~, bits_to_fix_indices] = mink(dead_bit_lifetimes, obj.ECP_MAX_ERRORS_CORRECTED);
+                    %bits_to_correct = obj.Memory.memory_lifetime_table(row_to_update, dead_bit_indices);
+                    % Reset number of writes to bad bits
+                    for bit_to_fix_relative_index=bits_to_fix_indices
+                        bit_to_fix = dead_bit_indices(bit_to_fix_relative_index);
+                        obj.Memory.memory_lifetime_table(row_to_update, bit_to_fix) = normrnd(obj.BIT_MEAN_WRITES, obj.BIT_VAR_WRITES);
+                        obj.Memory.writes_performed_table(row_to_update, bit_to_fix) = 0;
+                        obj.Memory.dead_bit_table(row_to_update, bit_to_fix) = 0;
+                    end
+                    % 2. Reset dead bits array
+                end
             end
         end
         
