@@ -13,6 +13,7 @@ classdef ZombieMetadata < handle
         BIT_MEAN_WRITES;
         BIT_VAR_WRITES;
 
+        IS_RIDER_USED;
         Memory;
         
         spare_blocks_queue;
@@ -24,7 +25,7 @@ classdef ZombieMetadata < handle
     end
     
     methods
-        function obj = ZombieMetadata(lifetime_mean, lifetime_sigma, page_bytes, block_bytes, pages_num, ecp_max_errors_corrected)
+        function obj = ZombieMetadata(lifetime_mean, lifetime_sigma, page_bytes, block_bytes, pages_num, ecp_max_errors_corrected, is_RIDER_used)
             obj.PAGE_BYTES = page_bytes;
             obj.BLOCK_BYTES = block_bytes; 
             obj.PAGES_NUM = pages_num; %1000;
@@ -34,6 +35,7 @@ classdef ZombieMetadata < handle
             obj.ECP_MAX_ERRORS_CORRECTED = ecp_max_errors_corrected;
             obj.BIT_MEAN_WRITES = lifetime_mean;
             obj.BIT_VAR_WRITES = lifetime_sigma;
+            obj.IS_RIDER_USED = is_RIDER_used;
             
             obj.Memory = MemoryArray(lifetime_mean, lifetime_sigma, page_bytes, block_bytes, pages_num);
             
@@ -102,18 +104,6 @@ classdef ZombieMetadata < handle
         end
         
         
-        function obj = pairPage(obj, bad_block_num)
-            spare_page_num = obj.Memory.get_page_num_of_block(bad_block_num);
-            if ~isempty(obj.spare_blocks_queue) % Pair the entire page of bad block with a spare page
-                for i = obj.spare_blocks_queue
-                    obj.block_pairing_table((spare_page_num-1)*obj.PAGE_ROWS+i) = obj.DequeueSpareBlock();    
-                end
-            else
-                obj.makeAllPageBlocksSpare(bad_block_num);
-            end
-        end
-        
-        
         function updateECPArray(obj, row_to_update)
             if ~obj.is_ECP_exhausted_array(row_to_update)
                 obj.ECP_corrected_errors_array(row_to_update) = length(find(obj.Memory.dead_bit_table(row_to_update,:)));
@@ -169,6 +159,19 @@ classdef ZombieMetadata < handle
         
         function active_rows_list = getActiveRowsList(obj)
             active_rows_list = obj.Memory.getActiveRowsList();
+        end
+        
+        % Defunct functions
+                
+        function obj = pairPage(obj, bad_block_num)
+            spare_page_num = obj.Memory.get_page_num_of_block(bad_block_num);
+            if ~isempty(obj.spare_blocks_queue) % Pair the entire page of bad block with a spare page
+                for i = obj.spare_blocks_queue
+                    obj.block_pairing_table((spare_page_num-1)*obj.PAGE_ROWS+i) = obj.DequeueSpareBlock();    
+                end
+            else
+                obj.makeAllPageBlocksSpare(bad_block_num);
+            end
         end
     end
 end
