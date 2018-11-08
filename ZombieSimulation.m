@@ -21,7 +21,7 @@ WRITES_START = 0;
 MAX_WRITES = 10e8; 
 WRITES_RESOLUTION = 100; 
 WRITES_DELTA = (MAX_WRITES-WRITES_START)/WRITES_RESOLUTION;
-WRITES_STEP = 1e6;
+WRITES_STEP = 2e6;
 active_pages_vs_writes_num = zeros(1, WRITES_RESOLUTION+1);
 writes_num_vs_iteration = zeros(1, WRITES_RESOLUTION+1);
 WRITE_WIDTH = BLOCK_BITS;
@@ -52,13 +52,13 @@ while ~Zombie.isMemoryDead()
 end
 fprintf("iteration %d: working pages = %d\n", writes_performed/1e8, num_of_active_pages);
 
-save e58
+save ZombieW_WO_RIDER
 
 
 %--------------------------
 % PLOT
 %--------------------------
-load e58
+load ZombieW_WO_RIDER
     survmp = 100*active_pages_vs_writes_num/PAGES_NUM;
     %xx=(WRITES_STEP/PAGES_NUM)*(1:length(survmp));
     xx = writes_num_vs_iteration/PAGES_NUM;
