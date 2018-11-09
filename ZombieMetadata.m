@@ -1,7 +1,5 @@
 classdef ZombieMetadata < handle
-    %ZOMBIEMETADATA Summary of this class goes here
-    %   Detailed explanation goes here
-    
+   
     properties
         PAGE_BYTES;
         BLOCK_BYTES; 
@@ -13,7 +11,6 @@ classdef ZombieMetadata < handle
         BIT_MEAN_WRITES;
         BIT_VAR_WRITES;
 
-        IS_RIDER_USED;
         Memory;
         
         spare_blocks_queue;
@@ -22,6 +19,10 @@ classdef ZombieMetadata < handle
         
         ECP_corrected_errors_array;
         is_ECP_exhausted_array;
+        
+        IS_RIDER_USED;
+        RIDER_first_order_spare_block;        
+        RIDER_second_order_spare_block;
     end
     
     methods
@@ -35,7 +36,6 @@ classdef ZombieMetadata < handle
             obj.ECP_MAX_ERRORS_CORRECTED = ecp_max_errors_corrected;
             obj.BIT_MEAN_WRITES = lifetime_mean;
             obj.BIT_VAR_WRITES = lifetime_sigma;
-            obj.IS_RIDER_USED = is_RIDER_used;
             
             obj.Memory = MemoryArray(lifetime_mean, lifetime_sigma, page_bytes, block_bytes, pages_num);
             
@@ -45,6 +45,10 @@ classdef ZombieMetadata < handle
             obj.block_pairing_table = zeros(obj.PAGE_ROWS*obj.PAGES_NUM, 1);
             obj.ECP_corrected_errors_array = zeros(obj.PAGES_NUM*obj.PAGE_ROWS,1); 
             obj.is_ECP_exhausted_array = zeros(obj.PAGES_NUM*obj.PAGE_ROWS,1); 
+            
+            obj.IS_RIDER_USED = is_RIDER_used;
+            obj.RIDER_first_order_spare_block = 0;
+            obj.RIDER_second_order_spare_block = 0;
         end
         
                 
@@ -116,12 +120,44 @@ classdef ZombieMetadata < handle
         
                 
         function obj = pairBlock(obj, bad_block_num)
-            if ~isempty(obj.spare_blocks_queue) % Pair the bad block
-                obj.block_pairing_table(bad_block_num) = obj.DequeueSpareBlock();
-            else
-                makeAllPageBlocksSpare(obj, bad_block_num);
+            if obj.IS_RIDER_USED
+                obj.pairBlockWithRIDER(bad_block_num);
+            else % Zombie Scheme
+                if ~isempty(obj.spare_blocks_queue) 
+                    obj.block_pairing_table(bad_block_num) = obj.DequeueSpareBlock();
+                else
+                    makeAllPageBlocksSpare(obj, bad_block_num);
+                end    
             end
         end
+        
+        
+        %%%%%%%%%%%%%%% RIDER
+        
+        function obj = pairBlockWithRIDER(obj, primary_block_num)
+            spare_block_num = obj.paired_blocks_list(primary_block_num);
+            if spare_block_num == 0
+                %First time primary block dies
+                if obj.RIDER_first_order_spare_block ~= 0 % If a spare exists, pair the block
+                    obj.paired_blocks_list(primary_block_num) = obj.RIDER_first_order_spare_block;
+                    obj.RIDER_first_order_spare_block = 0;
+                else % If a spare DOES NOT exist, make it a spare block
+                    obj.RIDER_first_order_spare_block = primary_block_num;
+                    obj.Memory.inactivateMemoryRow(primary_block_num);
+                end
+            else
+                %Paired primary block that died --> put in second order spare block
+                if obj.RIDER_second_order_spare_block ~= 0
+                    obj.paired_blocks_list(primary_block_num) = obj.RIDER_second_order_spare_block;
+                    obj.RIDER_second_order_spare_block = 0;
+                else 
+                    obj.RIDER_second_order_spare_block = primary_block_num;
+                    obj.Memory.inactivateMemoryRow(primary_block_num);
+                end
+            end
+        end
+        
+        %%%%%%%%%%%%%%%
         
         
         function obj = makeAllPageBlocksSpare(obj, bad_block_num)

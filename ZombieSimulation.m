@@ -8,7 +8,7 @@ ECP_MAX_ERRORS_CORRECTED = 6;
 PAGE_BYTES = 2^12;
 BLOCK_BYTES = 2^6; 
 BLOCK_BITS = BLOCK_BYTES*2^3;
-PAGES_NUM = 250; %1000;
+PAGES_NUM = 100; %1000;
 BIT_MEAN_WRITES = 1e8;
 BIT_VAR_WRITES = 0.25 * BIT_MEAN_WRITES;
 
@@ -52,7 +52,11 @@ while ~Zombie.isMemoryDead()
 end
 fprintf("iteration %d: working pages = %d\n", writes_performed/1e8, num_of_active_pages);
 
-save ZombieW_WO_RIDER
+if IS_RIDER_USED
+    save RIDER
+else
+    save Zombie
+end
 
 
 %--------------------------

@@ -55,7 +55,11 @@ classdef MemoryArray < handle
             obj.dead_bit_table(row_to_write,bits_list) = obj.writes_performed_table(row_to_write,bits_list) > obj.memory_lifetime_table(row_to_write, bits_list);
         end
 
-        % Memory getters
+        % Memory getters / setters
+        function obj = inactivateMemoryRow(obj, row_num)
+            obj.active_rows_array(row_num) = 0;
+        end
+        
         function num_of_pages = numOfActivePages(obj)
             num_of_pages = sum(obj.active_rows_array(:))/obj.PAGE_ROWS;
         end
