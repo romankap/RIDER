@@ -9,7 +9,7 @@ PAGES_NUM = 100; %1000;
 BIT_MEAN_WRITES = 1e8;
 BIT_VAR_WRITES = 0.25 * BIT_MEAN_WRITES;
 
-IS_RIDER_USED = false;
+IS_RIDER_USED = true;
 
 if IS_RIDER_USED
     % ECP Parameters 
@@ -27,7 +27,7 @@ WRITES_START = 0;
 MAX_WRITES = 10e8; 
 WRITES_RESOLUTION = 100; 
 WRITES_DELTA = (MAX_WRITES-WRITES_START)/WRITES_RESOLUTION;
-WRITES_STEP = 1e7;
+WRITES_STEP = 1e6;
 active_pages_vs_writes_num = zeros(1, WRITES_RESOLUTION+1);
 writes_num_vs_iteration = zeros(1, WRITES_RESOLUTION+1);
 WRITE_WIDTH = BLOCK_BITS;
@@ -64,7 +64,7 @@ fprintf('iteration %d: working pages = %d\n', writes_performed/1e8, num_of_activ
 if IS_RIDER_USED
     save RIDER
 else
-    save Zombie
+    save Zombie_WO_RIDER
 end
 
 
@@ -84,23 +84,25 @@ end
         if i==1 
             if isfile("RIDER.mat")
                 load RIDER
+                survmp = 100*active_pages_vs_writes_num/PAGES_NUM;
+                xx = writes_num_vs_iteration/PAGES_NUM;    
+                plot(xx,survmp,'r')
+                hold on
             else
                 continue;
             end
         elseif i==2 
-            if isfile("Zombie.mat")
-                load Zombie
+            if isfile("Zombie_WO_RIDER.mat")
+                load Zombie_WO_RIDER
+                survmp_zombie = 100*active_pages_vs_writes_num/PAGES_NUM;
+                xx_zombie = writes_num_vs_iteration/PAGES_NUM;    
+                plot(xx_zombie,survmp_zombie,'b')
+                if isfile("RIDER.mat")
+                    hold off
+                end
             else
                 continue;
             end
-        end
-        survmp = 100*active_pages_vs_writes_num/PAGES_NUM;
-        %xx=(WRITES_STEP/PAGES_NUM)*(1:length(survmp));
-        xx = writes_num_vs_iteration/PAGES_NUM;    
-        if i==1
-            plot(xx,survmp,'r')
-        elseif i==2 
-            plot(xx,survmp,'b')
         end
     end
     
