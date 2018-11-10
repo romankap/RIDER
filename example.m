@@ -1,24 +1,8 @@
 clc; clear;
-arr = zeros(4, 6);
-
-arr(2,1) = 7;
-arr(2,4) = 4;
-find_res = find(arr(2,:));
-
-found_vals = arr(2,find_res);
-
-len = length(find_res);
-
-find_res = find(arr(2,:) ~= 0);
-len = length(find_res);
-
-find_res = find(arr(2,:) > 0);
-len = length(find_res);
-
-arr(1) = [];
-emp = isempty(arr);
-len = length(find(arr > 0));
-disp(len);
+for i=1:1:2
+    
+   disp(i) 
+end
 
 function array = Enqueue(array, elem)
     array = [array elem];

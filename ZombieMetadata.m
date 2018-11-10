@@ -14,7 +14,6 @@ classdef ZombieMetadata < handle
         Memory;
         
         spare_blocks_queue;
-        paired_blocks_list;
         block_pairing_table;
         
         ECP_corrected_errors_array;
@@ -40,13 +39,13 @@ classdef ZombieMetadata < handle
             obj.Memory = MemoryArray(lifetime_mean, lifetime_sigma, page_bytes, block_bytes, pages_num);
             
             % -- Zombie
-            obj.paired_blocks_list = zeros(obj.PAGE_ROWS*obj.PAGES_NUM, 1);
             obj.spare_blocks_queue = [];
             obj.block_pairing_table = zeros(obj.PAGE_ROWS*obj.PAGES_NUM, 1);
             obj.ECP_corrected_errors_array = zeros(obj.PAGES_NUM*obj.PAGE_ROWS,1); 
             obj.is_ECP_exhausted_array = zeros(obj.PAGES_NUM*obj.PAGE_ROWS,1); 
             
             obj.IS_RIDER_USED = is_RIDER_used;
+            
             obj.RIDER_first_order_spare_block = 0;
             obj.RIDER_second_order_spare_block = 0;
         end
@@ -75,46 +74,22 @@ classdef ZombieMetadata < handle
 
                 primary_block_dead_bits = obj.Memory.dead_bit_table(row_to_write, :);
                 dead_bits_on_both_blocks = and(primary_block_dead_bits, spare_block_dead_bits);
-                isFixWorked = obj.fixBitsWithECP(spare_block_num, find(dead_bits_on_both_blocks));
-                if ~isFixWorked
-                    %replace the spare block
+                
+                if obj.IS_RIDER_USED     % == true
+                    fct=2;
+                else
+                    fct=1;
+                end
+                
+                if length(find(dead_bits_on_both_blocks==1)) > fct * obj.ECP_MAX_ERRORS_CORRECTED
                     obj.pairBlock(row_to_write);
-                end    
+                end
             else % Case: a regular block utilized all his ECP. Corrected bit with ECP become dead.
                 obj.Memory.writeToRow(row_to_write, writes_performed, write_width);
                 %obj.updateECPArray(row_to_write);
                 if length(find(obj.Memory.dead_bit_table(row_to_write, :))) > obj.ECP_MAX_ERRORS_CORRECTED
                     obj.pairBlock(row_to_write);
                 end
-            end
-        end
-        
-        function isFixWorked = fixSingleBitWithECP(obj, row_to_update, bit_to_fix)
-            if obj.ECP_corrected_errors_array(row_to_update) < obj.ECP_MAX_ERRORS_CORRECTED
-                obj.Memory.memory_lifetime_table(row_to_update, bit_to_fix) = normrnd(obj.BIT_MEAN_WRITES, obj.BIT_VAR_WRITES);
-                obj.Memory.writes_performed_table(row_to_update, bit_to_fix) = 0;
-                obj.Memory.dead_bit_table(row_to_update, bit_to_fix) = 0;
-                obj.ECP_corrected_errors_array(row_to_update) = obj.ECP_corrected_errors_array(row_to_update) + 1;
-                isFixWorked = true;
-            else
-                isFixWorked = false;
-            end
-        end
-        
-        
-        function isFixWorked = fixBitsWithECP(obj, row_to_update, bits_to_fix_list) %Should be called on spare block bits
-            if ~obj.is_ECP_exhausted_array(row_to_update)
-                for bit_to_fix = bits_to_fix_list
-                    isFixWorked = obj.fixSingleBitWithECP(row_to_update, bit_to_fix);
-                    if ~isFixWorked
-                        obj.is_ECP_exhausted_array(row_to_update) = true;
-                        isFixWorked = false;
-                        return;
-                    end
-                end
-                isFixWorked = true;
-            else
-                isFixWorked = false;
             end
         end
         
@@ -135,11 +110,11 @@ classdef ZombieMetadata < handle
         %%%%%%%%%%%%%%% RIDER
         
         function obj = pairBlockWithRIDER(obj, primary_block_num)
-            spare_block_num = obj.paired_blocks_list(primary_block_num);
+            spare_block_num = obj.block_pairing_table(primary_block_num);
             if spare_block_num == 0
                 %First time primary block dies
                 if obj.RIDER_first_order_spare_block ~= 0 % If a spare exists, pair the block
-                    obj.paired_blocks_list(primary_block_num) = obj.RIDER_first_order_spare_block;
+                    obj.block_pairing_table(primary_block_num) = obj.RIDER_first_order_spare_block;
                     obj.RIDER_first_order_spare_block = 0;
                 else % If a spare DOES NOT exist, make it a spare block
                     obj.RIDER_first_order_spare_block = primary_block_num;
@@ -148,7 +123,7 @@ classdef ZombieMetadata < handle
             else
                 %Paired primary block that died --> put in second order spare block
                 if obj.RIDER_second_order_spare_block ~= 0
-                    obj.paired_blocks_list(primary_block_num) = obj.RIDER_second_order_spare_block;
+                    obj.block_pairing_table(primary_block_num) = obj.RIDER_second_order_spare_block;
                     obj.RIDER_second_order_spare_block = 0;
                 else 
                     obj.RIDER_second_order_spare_block = primary_block_num;
@@ -229,6 +204,44 @@ classdef ZombieMetadata < handle
                 end
             end
         end
+        
+        
+        function isFixWorked = fixSingleBitWithECP(obj, row_to_update, bit_to_fix)    
+            %%%% Leonid
+            if obj.IS_RIDER_USED     
+                fct=2;
+            else
+                fct=1;
+            end
+                
+            if obj.ECP_corrected_errors_array(row_to_update) < fct * obj.ECP_MAX_ERRORS_CORRECTED             %%%%%%%%
+                obj.Memory.memory_lifetime_table(row_to_update, bit_to_fix) = normrnd(obj.BIT_MEAN_WRITES, obj.BIT_VAR_WRITES);
+                obj.Memory.writes_performed_table(row_to_update, bit_to_fix) = 0;
+                obj.Memory.dead_bit_table(row_to_update, bit_to_fix) = 0;
+                obj.ECP_corrected_errors_array(row_to_update) = obj.ECP_corrected_errors_array(row_to_update) + 1;
+                isFixWorked = true;
+            else
+                isFixWorked = false;
+            end
+        end
+        
+                
+        function isFixWorked = fixBitsWithECP(obj, row_to_update, bits_to_fix_list) %Should be called on spare block bits
+            if ~obj.is_ECP_exhausted_array(row_to_update)
+                for bit_to_fix = bits_to_fix_list
+                    isFixWorked = obj.fixSingleBitWithECP(row_to_update, bit_to_fix);
+                    if ~isFixWorked
+                        obj.is_ECP_exhausted_array(row_to_update) = true;
+                        isFixWorked = false;
+                        return;
+                    end
+                end
+                isFixWorked = true;
+            else
+                isFixWorked = false;
+            end
+        end
+        
     end
 end
 
