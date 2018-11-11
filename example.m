@@ -1,8 +1,11 @@
 clc; clear;
-for i=1:1:2
-    
-   disp(i) 
-end
+test = zeros(1, 7);
+test(2) = 4;
+test(3) = 2;
+test(4) = 0;
+disp(find(~test));
+disp(test);
+
 
 function array = Enqueue(array, elem)
     array = [array elem];

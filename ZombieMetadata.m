@@ -8,6 +8,7 @@ classdef ZombieMetadata < handle
         BITS_PER_BLOCK;
         ROWS_IN_MEMORY;
         ECP_MAX_ERRORS_CORRECTED;
+        ECP_CORRECTIONS_FACTOR; %To be used with RIDER
         BIT_MEAN_WRITES;
         BIT_VAR_WRITES;
 
@@ -15,6 +16,7 @@ classdef ZombieMetadata < handle
         
         spare_blocks_queue;
         block_pairing_table;
+        current_primary_blocks;
         
         ECP_corrected_errors_array;
         is_ECP_exhausted_array;
@@ -33,6 +35,7 @@ classdef ZombieMetadata < handle
             obj.BITS_PER_BLOCK = obj.BLOCK_BYTES*8;
             obj.ROWS_IN_MEMORY = obj.PAGES_NUM * obj.PAGE_ROWS;
             obj.ECP_MAX_ERRORS_CORRECTED = ecp_max_errors_corrected;
+            
             obj.BIT_MEAN_WRITES = lifetime_mean;
             obj.BIT_VAR_WRITES = lifetime_sigma;
             
@@ -42,9 +45,18 @@ classdef ZombieMetadata < handle
             obj.spare_blocks_queue = [];
             obj.block_pairing_table = zeros(obj.PAGE_ROWS*obj.PAGES_NUM, 1);
             obj.ECP_corrected_errors_array = zeros(obj.PAGES_NUM*obj.PAGE_ROWS,1); 
-            obj.is_ECP_exhausted_array = zeros(obj.PAGES_NUM*obj.PAGE_ROWS,1); 
+            obj.is_ECP_exhausted_array = zeros(obj.PAGES_NUM*obj.PAGE_ROWS,1);
+            
+            % -- Analytics
+            obj.current_primary_blocks = 0;
             
             obj.IS_RIDER_USED = is_RIDER_used;
+            if obj.IS_RIDER_USED
+                obj.ECP_CORRECTIONS_FACTOR = 2;
+            else
+                obj.ECP_CORRECTIONS_FACTOR = 1;
+            end
+            
             
             obj.RIDER_first_order_spare_block = 0;
             obj.RIDER_second_order_spare_block = 0;
@@ -75,13 +87,7 @@ classdef ZombieMetadata < handle
                 primary_block_dead_bits = obj.Memory.dead_bit_table(row_to_write, :);
                 dead_bits_on_both_blocks = and(primary_block_dead_bits, spare_block_dead_bits);
                 
-                if obj.IS_RIDER_USED     % == true
-                    fct=2;
-                else
-                    fct=1;
-                end
-                
-                if length(find(dead_bits_on_both_blocks==1)) > fct * obj.ECP_MAX_ERRORS_CORRECTED
+                if length(find(dead_bits_on_both_blocks==1)) > obj.ECP_CORRECTIONS_FACTOR * obj.ECP_MAX_ERRORS_CORRECTED
                     obj.pairBlock(row_to_write);
                 end
             else % Case: a regular block utilized all his ECP. Corrected bit with ECP become dead.
@@ -115,6 +121,7 @@ classdef ZombieMetadata < handle
                 %First time primary block dies
                 if obj.RIDER_first_order_spare_block ~= 0 % If a spare exists, pair the block
                     obj.block_pairing_table(primary_block_num) = obj.RIDER_first_order_spare_block;
+                    obj.block_pairing_table(obj.RIDER_first_order_spare_block) = 0;
                     obj.RIDER_first_order_spare_block = 0;
                 else % If a spare DOES NOT exist, make it a spare block
                     obj.RIDER_first_order_spare_block = primary_block_num;
@@ -124,9 +131,11 @@ classdef ZombieMetadata < handle
                 %Paired primary block that died --> put in second order spare block
                 if obj.RIDER_second_order_spare_block ~= 0
                     obj.block_pairing_table(primary_block_num) = obj.RIDER_second_order_spare_block;
+                    obj.block_pairing_table(obj.RIDER_second_order_spare_block) = 0;
                     obj.RIDER_second_order_spare_block = 0;
                 else 
                     obj.RIDER_second_order_spare_block = primary_block_num;
+                    obj.block_pairing_table(primary_block_num) = 0;
                     obj.Memory.inactivateMemoryRow(primary_block_num);
                 end
             end
@@ -141,6 +150,7 @@ classdef ZombieMetadata < handle
             for i=1:1:obj.PAGE_ROWS
                 spare_block_index = (page_num-1)*obj.PAGE_ROWS+i;
                 obj.EnqueueSpareBlock(spare_block_index);
+                obj.block_pairing_table(spare_block_index) = 0;
             end
         end
              
