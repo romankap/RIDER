@@ -1,4 +1,12 @@
 clc; clear;
+a = true;
+b = false;
+if a && ~b 
+    disp("true");
+else
+    disp("false");
+end
+
 test = zeros(1, 7);
 test(2) = 4;
 test(3) = 2;

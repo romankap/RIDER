@@ -10,7 +10,7 @@ PAGES_NUM = 100; %1000;
 BIT_MEAN_WRITES = 1e8;
 BIT_VAR_WRITES = 0.25 * BIT_MEAN_WRITES;
 
-IS_RIDER_USED = false;
+IS_RIDER_USED = true;
 
 if IS_RIDER_USED
     % ECP Parameters 
@@ -43,7 +43,8 @@ not_active_dead_blocks = zeros(1, 1);
 iter_counter=1;
 writes_performed = WRITES_START;
 %for writes_performed = WRITES_START:WRITES_DELTA:MAX_WRITES
-while ~Zombie.isMemoryDead()
+IS_SIMULATION_SKIPPED = false; %Load stored .mat files
+while ~Zombie.isMemoryDead() && ~IS_SIMULATION_SKIPPED
     % iterate over all active pages
     
     
@@ -72,12 +73,22 @@ while ~Zombie.isMemoryDead()
     writes_performed = writes_performed + WRITES_STEP;
     
 end
-fprintf('iteration %d: working pages = %d\n', writes_performed/1e8, num_of_active_pages);
+if ~IS_SIMULATION_SKIPPED
+    fprintf('iteration %d: working pages = %d\n', writes_performed/1e8, num_of_active_pages);
+end
 
 if IS_RIDER_USED
-    save RIDER
+    if IS_SIMULATION_SKIPPED
+        load RIDER
+    else
+        save RIDER
+    end
 else
-    save Zombie_WO_RIDER
+    if IS_SIMULATION_SKIPPED
+        load Zombie_WO_RIDER
+    else
+        save Zombie_WO_RIDER
+    end
 end
 
 figure(66)
