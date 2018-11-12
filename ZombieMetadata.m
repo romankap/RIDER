@@ -87,7 +87,7 @@ classdef ZombieMetadata < handle
                 primary_block_dead_bits = obj.Memory.dead_bit_table(row_to_write, :);
                 dead_bits_on_both_blocks = and(primary_block_dead_bits, spare_block_dead_bits);
                 
-                if length(find(dead_bits_on_both_blocks==1)) > obj.ECP_CORRECTIONS_FACTOR * obj.ECP_MAX_ERRORS_CORRECTED
+                if length(find(dead_bits_on_both_blocks, 1)) > obj.ECP_CORRECTIONS_FACTOR * obj.ECP_MAX_ERRORS_CORRECTED
                     obj.pairBlock(row_to_write);
                 end
             else % Case: a regular block utilized all his ECP. Corrected bit with ECP become dead.
@@ -107,7 +107,7 @@ classdef ZombieMetadata < handle
                 if ~isempty(obj.spare_blocks_queue) 
                     obj.block_pairing_table(bad_block_num) = obj.DequeueSpareBlock();
                 else
-                    makeAllPageBlocksSpare(obj, bad_block_num);
+                    obj.makeAllPageBlocksSpare(bad_block_num);
                 end    
             end
         end
@@ -148,9 +148,14 @@ classdef ZombieMetadata < handle
             page_num = obj.Memory.get_page_num_of_block(bad_block_num);
             obj.Memory.active_rows_array((page_num-1)*obj.PAGE_ROWS+1 : page_num*obj.PAGE_ROWS) = 0;
             for i=1:1:obj.PAGE_ROWS
-                spare_block_index = (page_num-1)*obj.PAGE_ROWS+i;
-                obj.EnqueueSpareBlock(spare_block_index);
-                obj.block_pairing_table(spare_block_index) = 0;
+                new_spare_block_index = (page_num-1)*obj.PAGE_ROWS+i;
+                obj.EnqueueSpareBlock(new_spare_block_index);
+                
+                spare_of_spare_block_index = obj.block_pairing_table(new_spare_block_index);
+                if spare_of_spare_block_index ~= 0
+                    obj.EnqueueSpareBlock(spare_of_spare_block_index);
+                    obj.block_pairing_table(new_spare_block_index) = 0;
+                end
             end
         end
              

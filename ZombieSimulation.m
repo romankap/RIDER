@@ -10,7 +10,7 @@ PAGES_NUM = 100; %1000;
 BIT_MEAN_WRITES = 1e8;
 BIT_VAR_WRITES = 0.25 * BIT_MEAN_WRITES;
 
-IS_RIDER_USED = true;
+IS_RIDER_USED = false;
 
 if IS_RIDER_USED
     % ECP Parameters 
@@ -28,7 +28,7 @@ WRITES_START = 0;
 MAX_WRITES = 10e8; 
 WRITES_RESOLUTION = 100; 
 WRITES_DELTA = (MAX_WRITES-WRITES_START)/WRITES_RESOLUTION;
-WRITES_STEP = 1e6;
+WRITES_STEP = 1e7;
 active_pages_vs_writes_num = zeros(1, 1);
 writes_num_vs_iteration = zeros(1, 1);
 WRITE_WIDTH = BLOCK_BITS;
