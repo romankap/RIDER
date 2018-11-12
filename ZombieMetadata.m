@@ -87,7 +87,9 @@ classdef ZombieMetadata < handle
                 primary_block_dead_bits = obj.Memory.dead_bit_table(row_to_write, :);
                 dead_bits_on_both_blocks = and(primary_block_dead_bits, spare_block_dead_bits);
                 
-                if length(find(dead_bits_on_both_blocks, 1)) > obj.ECP_CORRECTIONS_FACTOR * obj.ECP_MAX_ERRORS_CORRECTED
+                ECP_correctable_blocks = obj.ECP_CORRECTIONS_FACTOR * obj.ECP_MAX_ERRORS_CORRECTED;
+                num_of_dead_bits_on_both_blocks = size(find(dead_bits_on_both_blocks));
+                if num_of_dead_bits_on_both_blocks(2) > ECP_correctable_blocks
                     obj.pairBlock(row_to_write);
                 end
             else % Case: a regular block utilized all his ECP. Corrected bit with ECP become dead.
