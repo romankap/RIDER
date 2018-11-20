@@ -1,4 +1,4 @@
-classdef Aegis < handle
+classdef AegisMetadata < handle
     
     properties
         PAGE_BYTES;
@@ -37,14 +37,29 @@ classdef Aegis < handle
         end
         
         
-        function is_page_dead = writeToRow(obj, row_to_write, writes_performed, write_width)
+        function obj = writeToRandomRows(obj, writes_performed, write_width)
+            num_of_active_rows = obj.Memory.getNumOfActiveRows();
+            if num_of_active_rows > 0
+                random_active_block = randi([1 num_of_active_rows]);
+                active_rows_list = obj.Memory.getActiveRowsList();
+                block_to_write=active_rows_list(random_active_block);
+
+                is_write_successful = obj.writeToRow(block_to_write, writes_performed, write_width);
+                if ~is_write_successful
+                    obj.killAllPageBlocks(block_to_write);
+                end
+            end
+        end
+        
+        
+        function is_write_successful = writeToRow(obj, row_to_write, writes_performed, write_width)
             obj.Memory.writeToRow(row_to_write, writes_performed, write_width);
             dead_bit_indices = find(obj.Memory.dead_bit_table(spare_block_num, :));
             
             %1. Check if number of errors equals what is stored in partition vector
             num_of_dead_bits = length(find(dead_bit_indices)); 
             if obj.groups_used_table(row_to_write) >= num_of_dead_bits
-                is_page_dead = false;
+                is_write_successful = false;
                 return;
             end
             
@@ -53,16 +68,16 @@ classdef Aegis < handle
             is_curr_partition_works = obj.isPartitionWorks(dead_bit_indices, slope_of_row);
             if ~is_curr_partition_works
                 obj.groups_used_table(row_to_write) = num_of_dead_bits;
-                is_page_dead = false;
+                is_write_successful = false;
                 return
             end
             
             %3. More than 1 error in current partition -> repartition
             is_repartition_worked = repartition(dead_bit_indices, row_to_write);
             if ~is_repartition_worked
-                is_page_dead = true;
+                is_write_successful = true;
             else
-                is_page_dead = false;
+                is_write_successful = false;
             end
         end
         
@@ -95,8 +110,14 @@ classdef Aegis < handle
         end
         
         
+        function obj = killAllPageBlocks(obj, bad_row_num)
+            page_num = obj.Memory.get_page_num_of_block(bad_row_num);
+            obj.Memory.active_rows_array((page_num-1)*obj.PAGE_ROWS+1 : page_num*obj.PAGE_ROWS) = 0;    
+        end
+        
+        
         function group_index = findGroupOfBit(obj, bit_index, slope)
-            a = floor(bit_index/obj.A);
+            a = mod(bit_index, obj.A);
             group_index = mod(bit_index - a*slope, obj.B) + 1;
         end
     end
