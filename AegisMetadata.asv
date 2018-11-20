@@ -17,7 +17,7 @@ classdef AegisMetadata < handle
         
         Memory;
         
-        faults_in_killer_rows;
+        faults_in_killer_rows
     end
     
     methods
@@ -36,8 +36,6 @@ classdef AegisMetadata < handle
             obj.MAX_NUM_OF_REPARTITIONS = obj.B;
             
             obj.Memory = MemoryArray(lifetime_mean, lifetime_sigma, page_bytes, block_bytes, pages_num);
-            
-            obj.faults_in_killer_rows = zeros(obj.PAGES_NUM, 1);
         end
         
         
@@ -122,7 +120,6 @@ classdef AegisMetadata < handle
         function obj = killAllPageBlocks(obj, bad_row_num)
             page_num = obj.Memory.get_page_num_of_block(bad_row_num);
             obj.Memory.active_rows_array((page_num-1)*obj.PAGE_ROWS+1 : page_num*obj.PAGE_ROWS) = 0;    
-            obj.faults_in_killer_rows(page_num) = length(find(obj.Memory.dead_bit_table(bad_row_num, :)));
         end
         
         
