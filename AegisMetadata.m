@@ -17,17 +17,23 @@ classdef AegisMetadata < handle
         
         Memory;
         
+        % RIDER
+        IS_RIDER_USED;
+        
+        % Statistics
         faults_in_killer_rows;
     end
     
     methods
-        function obj = AegisMetadata(lifetime_mean, lifetime_sigma, page_bytes, block_bytes, pages_num, dim_X, dim_Y)
+        function obj = AegisMetadata(lifetime_mean, lifetime_sigma, page_bytes, block_bytes, pages_num, dim_X, dim_Y, is_RIDER_used)
             obj.PAGE_BYTES = page_bytes;
             obj.BLOCK_BYTES = block_bytes; 
             obj.PAGES_NUM = pages_num; %1000;
             obj.PAGE_ROWS = obj.PAGE_BYTES/obj.BLOCK_BYTES;
             obj.BITS_PER_BLOCK = obj.BLOCK_BYTES*8;
             obj.ROWS_IN_MEMORY = obj.PAGES_NUM * obj.PAGE_ROWS;
+            
+            obj.IS_RIDER_USED = is_RIDER_used;
             
             obj.A = dim_X;
             obj.B = dim_Y;
@@ -37,7 +43,11 @@ classdef AegisMetadata < handle
             
             obj.Memory = MemoryArray(lifetime_mean, lifetime_sigma, page_bytes, block_bytes, pages_num);
             
-            obj.faults_in_killer_rows = zeros(obj.PAGES_NUM, 1);
+            if ~obj.IS_RIDER_USED
+                obj.faults_in_killer_rows = zeros(obj.PAGES_NUM, 1);
+            else
+                obj.faults_in_killer_rows = zeros(obj.PAGE_ROWS*obj.PAGES_NUM, 1);
+            end
         end
         
         
@@ -50,7 +60,11 @@ classdef AegisMetadata < handle
 
                 is_write_successful = obj.writeToRow(block_to_write, writes_performed, write_width);
                 if ~is_write_successful
-                    obj.killAllPageBlocks(block_to_write);
+                    if obj.IS_RIDER_USED
+                        obj.killBlock(block_to_write);
+                    else
+                        obj.killAllPageBlocks(block_to_write);
+                    end
                 end
             end
         end
@@ -123,6 +137,12 @@ classdef AegisMetadata < handle
             page_num = obj.Memory.get_page_num_of_block(bad_row_num);
             obj.Memory.active_rows_array((page_num-1)*obj.PAGE_ROWS+1 : page_num*obj.PAGE_ROWS) = 0;    
             obj.faults_in_killer_rows(page_num) = length(find(obj.Memory.dead_bit_table(bad_row_num, :)));
+        end
+        
+        
+        function obj = killBlock(obj, bad_row_num)
+            obj.Memory.active_rows_array(bad_row_num) = 0;    
+            obj.faults_in_killer_rows(bad_row_num) = length(find(obj.Memory.dead_bit_table(bad_row_num, :)));
         end
         
         
