@@ -98,7 +98,7 @@ classdef AegisMetadata < handle
                 end
                 
                 repartitions_counter = repartitions_counter + 1;
-                curr_slope = curr_slope + 1;
+                curr_slope = mod(curr_slope + 1, obj.B);
             end
             is_success = false;
         end
