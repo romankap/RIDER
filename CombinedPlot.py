@@ -62,7 +62,7 @@ for i in range(num_of_plots):
             plt.plot(Plots[2 * i], Plots[2 * i + 1], label=heading_names[i], linewidth=1, linestyle='-', color=GREEN_COLOR, marker='', markersize=7, markevery=20)
 
     elif 'ECP2' in heading_names[i]:
-        plt.plot(Plots[2 * i], Plots[2 * i + 1], label=heading_names[i], linewidth=1, color='c')
+        plt.plot(Plots[2 * i], Plots[2 * i + 1], label=heading_names[i], linestyle='--', linewidth=1, color='c')
     elif 'ECP6' in heading_names[i]:
         plt.plot(Plots[2 * i], Plots[2 * i + 1], label=heading_names[i], linewidth=1, color='c')
     elif 'SAFER_32' in heading_names[i]:
