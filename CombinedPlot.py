@@ -5,7 +5,7 @@ from matplotlib.ticker import FuncFormatter
 
 ORANGE_COLOR = '#ff7f0e'
 DARK_RED_COLOR = '#D60008'
-GREEN_COLOR = '#43CB1A'
+GREEN_COLOR = '#5AB42E'
 
 #---------------------------------
 

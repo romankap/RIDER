@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="804e19b9-248c-4810-89f8-f827b56785d4" name="Default" comment="">
-      <change afterPath="$PROJECT_DIR$/CombinedPlot.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/AegisSimulation.m" beforeDir="false" afterPath="$PROJECT_DIR$/AegisSimulation.m" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/example.m" beforeDir="false" afterPath="$PROJECT_DIR$/example.m" afterDir="false" />
     </list>
@@ -14,7 +13,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="CoverageDataManager">
-    <SUITE FILE_PATH="coverage/RIDER$CombinedPlot.coverage" NAME="CombinedPlot Coverage Results" MODIFIED="1543414874686" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/RIDER$CombinedPlot.coverage" NAME="CombinedPlot Coverage Results" MODIFIED="1543415107879" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
   <component name="DatabaseView">
     <option name="SHOW_INTERMEDIATE" value="true" />
@@ -35,8 +34,8 @@
       <file leaf-file-name="CombinedPlot.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/CombinedPlot.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="454">
-              <caret line="75" column="38" lean-forward="true" selection-start-line="75" selection-start-column="38" selection-end-line="75" selection-end-column="38" />
+            <state relative-caret-position="119">
+              <caret line="7" column="22" selection-start-line="7" selection-start-column="22" selection-end-line="7" selection-end-column="22" />
               <folding>
                 <element signature="e#0#17#0" expanded="true" />
               </folding>
@@ -69,7 +68,7 @@
     <detection-done>true</detection-done>
     <sorting>DEFINITION_ORDER</sorting>
   </component>
-  <component name="ProjectFrameBounds" extendedState="7">
+  <component name="ProjectFrameBounds" extendedState="6">
     <option name="x" value="192" />
     <option name="y" value="5" />
     <option name="width" value="823" />
@@ -257,8 +256,8 @@
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/CombinedPlot.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="454">
-          <caret line="75" column="38" lean-forward="true" selection-start-line="75" selection-start-column="38" selection-end-line="75" selection-end-column="38" />
+        <state relative-caret-position="119">
+          <caret line="7" column="22" selection-start-line="7" selection-start-column="22" selection-end-line="7" selection-end-column="22" />
           <folding>
             <element signature="e#0#17#0" expanded="true" />
           </folding>
