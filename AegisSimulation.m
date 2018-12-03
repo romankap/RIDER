@@ -6,12 +6,12 @@ PAGE_BYTES = 2^12;
 BLOCK_BYTES = 2^6; 
 PAGE_ROWS = PAGE_BYTES / BLOCK_BYTES;
 BLOCK_BITS = BLOCK_BYTES*2^3;
-PAGES_NUM = 100; %1000;
+PAGES_NUM = 256; %1000;
 BIT_MEAN_WRITES = 1e8;
 BIT_VAR_WRITES = 0.25 * BIT_MEAN_WRITES;
 
 % RIDER
-IS_RIDER_USED = false;
+IS_RIDER_USED = true;
 
 % Aegis AxB
 AEGIS_DIM_A = 17;
@@ -20,7 +20,7 @@ Aegis = AegisMetadata(BIT_MEAN_WRITES, BIT_VAR_WRITES, PAGE_BYTES, BLOCK_BYTES, 
 
 
 %writes
-WRITES_STEP = 1e6; %Writes resolution
+WRITES_STEP = 1e5; %Writes resolution
 active_pages_vs_writes_num = zeros(1, 1);
 writes_num_vs_iteration = zeros(1, 1);
 WRITE_WIDTH = BLOCK_BITS;
